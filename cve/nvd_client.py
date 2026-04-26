@@ -139,6 +139,85 @@ class NVDClient:
         start_date = datetime.now() - timedelta(days=days_back)
         return self.fetch_cves_delta(start_date, max_results=max_results)
 
+    def fetch_cves_for_tech_stack(
+        self,
+        tech_components: List[Dict[str, Any]],
+        max_results_per_tech: int = 50
+    ) -> List[Dict[str, Any]]:
+        """
+        Fetch CVEs by keyword search for each technology in the stack.
+
+        This is MORE effective than date-based fetching because:
+        - Finds CVEs for specific products regardless of age
+        - No 90-day window limitation
+        - More relevant results
+
+        Args:
+            tech_components: List of component dicts with 'name' and 'type'
+            max_results_per_tech: Max CVEs to fetch per technology
+
+        Returns:
+            List of CVE dictionaries with key information
+        """
+        all_cves = []
+        seen_cve_ids = set()
+
+        # Import product mapping
+        import sys
+        sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from PRODUCT_MAPPING import extract_product_name
+
+        # Extract unique base product names
+        products_searched = set()
+
+        for component in tech_components:
+            comp_name = component.get('name', '')
+            comp_type = component.get('type', '')
+
+            # Use smart product extraction
+            product = extract_product_name(comp_name, comp_type)
+
+            # Skip if product is too generic
+            if not product:
+                print(f"⚠️ Skipping generic component: {comp_name}")
+                continue
+
+            # Skip if we already searched this product
+            if product in products_searched:
+                continue
+
+            print(f"Searching NVD for: {product}")
+
+            try:
+                # Use nvdlib keyword search
+                results = nvdlib.searchCVE(
+                    keywordSearch=product,
+                    key=self.api_key,
+                    limit=max_results_per_tech
+                )
+
+                # Extract and deduplicate CVEs
+                for cve in results:
+                    cve_id = cve.id
+
+                    # Skip duplicates
+                    if cve_id in seen_cve_ids:
+                        continue
+
+                    cve_data = self._extract_cve_data(cve)
+                    if cve_data:
+                        all_cves.append(cve_data)
+                        seen_cve_ids.add(cve_id)
+
+                products_searched.add(product)
+                print(f"  Found {len(results)} CVEs for '{product}'")
+
+            except Exception as e:
+                print(f"Error searching for '{product}': {e}")
+
+        print(f"Total CVEs fetched (deduplicated): {len(all_cves)}")
+        return all_cves
+
 
 if __name__ == "__main__":
     # Test the client

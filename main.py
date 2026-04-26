@@ -46,8 +46,12 @@ if uploaded_file:
                 try:
                     from cve import NVDClient
                     nvd_client = NVDClient()
-                    start_date = datetime.now() - timedelta(days=90)  # NVD API limit: max 90 days
-                    cves = nvd_client.fetch_cves_delta(start_date=start_date, max_results=200)  # More CVEs
+
+                    # Use keyword-based search (more accurate, no 90-day limit)
+                    cves = nvd_client.fetch_cves_for_tech_stack(
+                        tech_components=infrastructure['components'],
+                        max_results_per_tech=50  # Reduced for speed
+                    )
                 except Exception as e:
                     st.error(f"❌ Error fetching CVEs from NVD: {e}")
                     st.info("🔧 This might be a temporary NVD API issue. Please try again in a few minutes.")
