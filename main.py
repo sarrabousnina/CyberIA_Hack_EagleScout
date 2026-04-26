@@ -7,6 +7,9 @@ from datetime import datetime, timedelta
 import streamlit.components.v1 as components
 import os
 import plotly.graph_objects as go
+import sys
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from dashboard.ui_helpers import alert, section_header, metric_pills, terminal_log, attack_path_card, risk_table_html
 
 st.set_page_config(page_title="EagleScout - AI-Powered Vulnerability Intelligence", layout="wide", page_icon="🦅")
 
@@ -83,6 +86,8 @@ if 'topology_graph_path' not in st.session_state:
     st.session_state.topology_graph_path = None
 if 'attack_path_graph_path' not in st.session_state:
     st.session_state.attack_path_graph_path = None
+if 'show_chat' not in st.session_state:
+    st.session_state.show_chat = False
 
 # ========== ENTRANCE ANIMATION SECTION ==========
 if not st.session_state.results_ready:
@@ -133,8 +138,7 @@ if not st.session_state.results_ready:
             <div style="color: #2c3e50; font-size: 1.1rem; line-height: 1.7;">
                 Upload your infrastructure JSON file below to begin your vulnerability analysis.
                 <br><br>
-                <strong style="color: #00C2CB;">🔒 Your architecture data stays 100% private</strong> —
-                only CVE search terms are sent to external APIs.
+                <strong style="color: #00C2CB;">🔒 Your architecture data stays 100% private</strong>
             </div>
         </div>
     </div>
@@ -352,7 +356,7 @@ if uploaded_file:
                 progress_bar.progress(75)
 
                 # Step 3: Groq Security Reasoning
-                status_text.text("Performing security reasoning with Groq AI...")
+                status_text.text("Performing security reasoning ...")
 
                 from reasoning import GroqSecurityReasoner
                 reasoner = GroqSecurityReasoner()
@@ -484,26 +488,22 @@ if uploaded_file:
 
 # Show results
 if st.session_state.results_ready:
-    st.markdown("---")
-    st.header("Analysis Results")
+    section_header("RESULTS", "Analysis Results")
 
-    # Metrics - cleaner
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("CVEs", len(st.session_state.relevant_cves))
-    with col2:
-        if st.session_state.relevant_cves:
-            avg_risk = sum(cve['reasoning']['risk_score'] for cve in st.session_state.relevant_cves) / len(st.session_state.relevant_cves)
-            st.metric("Avg Risk", f"{avg_risk:.1f}", "1-10")
-    with col3:
-        high_risk = sum(1 for cve in st.session_state.relevant_cves if cve['reasoning']['risk_score'] >= 7)
-        st.metric("Critical", high_risk, delta="≥7 risk", delta_color="inverse")
-    with col4:
-        st.metric("Attack Paths", len(st.session_state.paths))
+    # Metrics as pills
+    metrics = {
+        "CVEs": len(st.session_state.relevant_cves),
+        "Attack Paths": len(st.session_state.paths)
+    }
 
-    # AI Chat - PROMINENT SECTION
-    st.markdown("---")
-    st.subheader("🤖 AI Security Analyst")
+    if st.session_state.relevant_cves:
+        avg_risk = sum(cve['reasoning']['risk_score'] for cve in st.session_state.relevant_cves) / len(st.session_state.relevant_cves)
+        metrics["Avg Risk"] = f"{avg_risk:.1f}/10"
+
+    high_risk = sum(1 for cve in st.session_state.relevant_cves if cve['reasoning']['risk_score'] >= 7)
+    metrics["Critical CVEs"] = high_risk
+
+    metric_pills(metrics)
 
     # Initialize chat history
     if 'chat_history' not in st.session_state:
@@ -516,78 +516,44 @@ if st.session_state.results_ready:
             st.session_state.infrastructure
         )
 
-    # Display chat history
-    for message in st.session_state.chat_history:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    # Light gradient background for the chat container
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(245, 240, 232, 0.7) 50%, rgba(235, 228, 216, 0.6) 100%);
+                border: 1px solid rgba(0, 194, 203, 0.25);
+                border-radius: 16px;
+                padding: 0.5rem;
+                backdrop-filter: blur(10px);
+                box-shadow: 0 4px 20px rgba(0, 194, 203, 0.1);">
+    """, unsafe_allow_html=True)
 
-    # Chat input
-    if prompt := st.chat_input("Ask about vulnerabilities, attack paths, or security posture..."):
-        # Add user message
-        st.session_state.chat_history.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-
-        # Get agent response
-        with st.chat_message("assistant"):
-            with st.spinner("Analyzing..."):
-                response = st.session_state.react_agent.chat(prompt)
-                st.markdown(response)
-
-        # Add assistant response
-        st.session_state.chat_history.append({"role": "assistant", "content": response})
-
-    # Suggested questions - more prominent
-    if not st.session_state.chat_history:
-        st.markdown("**Quick Questions:**")
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            if st.button("📊 Get summary"):
-                st.session_state.chat_history.append({"role": "user", "content": "Get analysis summary"})
-                st.session_state.chat_history.append({"role": "assistant", "content": st.session_state.react_agent.chat("Get analysis summary")})
-                st.rerun()
-        with col2:
-            if st.button("🔴 High-risk CVEs"):
-                st.session_state.chat_history.append({"role": "user", "content": "Show high-risk CVEs"})
-                st.session_state.chat_history.append({"role": "assistant", "content": st.session_state.react_agent.chat("Show high-risk CVEs")})
-                st.rerun()
-        with col3:
-            if st.button("🕸️ Attack paths"):
-                st.session_state.chat_history.append({"role": "user", "content": "Show critical attack paths"})
-                st.session_state.chat_history.append({"role": "assistant", "content": st.session_state.react_agent.chat("Show critical attack paths")})
-                st.rerun()
-        with col4:
-            if st.button("🔍 Top vulnerabilities"):
-                st.session_state.chat_history.append({"role": "user", "content": "What are my top vulnerabilities?"})
-                st.session_state.chat_history.append({"role": "assistant", "content": st.session_state.react_agent.chat("What are my top vulnerabilities?")})
-                st.rerun()
-
-    st.markdown("---")
-
-    # Risk Table
-    st.subheader("Risk Table")
-
+    # Risk Distribution & Components
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown("**Risk Distribution**")
+        section_header("RISK DISTRIBUTION", "Risk Breakdown")
 
         # Count risks by severity
         high_risk = sum(1 for cve in st.session_state.relevant_cves if cve['reasoning']['risk_score'] >= 7)
         medium_risk = sum(1 for cve in st.session_state.relevant_cves if 4 <= cve['reasoning']['risk_score'] < 7)
         low_risk = sum(1 for cve in st.session_state.relevant_cves if cve['reasoning']['risk_score'] < 4)
 
-        # Create pie chart
+        # Create pie chart with beige background
         fig_risk = go.Figure(data=[go.Pie(
             labels=['High (7-10)', 'Medium (4-6)', 'Low (1-3)'],
             values=[high_risk, medium_risk, low_risk],
             marker=dict(colors=['#ef4444', '#f59e0b', '#22c55e'])
         )])
-        fig_risk.update_layout(height=300, margin=dict(l=0, r=0, t=0, b=0), showlegend=True)
+        fig_risk.update_layout(
+            height=350,
+            margin=dict(l=0, r=0, t=30, b=0),
+            showlegend=True,
+            paper_bgcolor='rgba(245, 240, 232, 0.5)',
+            plot_bgcolor='rgba(245, 240, 232, 0.3)'
+        )
         st.plotly_chart(fig_risk, use_container_width=True)
 
     with col2:
-        st.markdown("**Top Vulnerable Components**")
+        section_header("TOP VULNERABLE COMPONENTS", "Highest Risk Components")
 
         # Calculate average risk per component
         component_risks = {}
@@ -610,13 +576,21 @@ if st.session_state.results_ready:
                 orientation='h',
                 marker=dict(color=list(risks), colorscale='Reds')
             )])
-            fig_comp.update_layout(height=300, margin=dict(l=0, r=0, t=0, b=0), xaxis_title="Risk Score")
+            fig_comp.update_layout(
+                height=350,
+                margin=dict(l=0, r=0, t=30, b=40),
+                xaxis_title="Risk Score",
+                paper_bgcolor='rgba(245, 240, 232, 0.5)',
+                plot_bgcolor='rgba(245, 240, 232, 0.3)'
+            )
             st.plotly_chart(fig_comp, use_container_width=True)
         else:
             st.info("No component data available")
 
-    # Risk table
-    st.subheader("🎯 Risk Table")
+    # Risk Table
+    section_header("RISK TABLE", "Detailed Vulnerability List")
+
+    # Create table data
     table_data = []
     for cve in st.session_state.relevant_cves:
         reasoning = cve.get('reasoning', {})
@@ -639,21 +613,20 @@ if st.session_state.results_ready:
         })
 
     df = pd.DataFrame(table_data)
-    st.dataframe(df, use_container_width=True, height=300)
+    st.markdown(risk_table_html(df), unsafe_allow_html=True)
 
     # Attack Paths & Visualizations
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown("**Attack Paths**")
+        section_header("ATTACK PATHS", "Critical Attack Routes")
         for i, path in enumerate(st.session_state.paths[:3], 1):
             route = " → ".join(path["path"])
             risk = path['total_risk']
-            st.write(f"**{i}.** {route}")
-            st.caption(f"Risk: {risk:.1f}/10")
+            attack_path_card(i, route, risk)
 
     with col2:
-        st.markdown("**Network Topology**")
+        section_header("NETWORK TOPOLOGY", "Infrastructure Graph")
 
         tab1, tab2 = st.tabs(["Topology", "Attack Paths"])
 
@@ -661,20 +634,20 @@ if st.session_state.results_ready:
             if st.session_state.topology_graph_path and os.path.exists(st.session_state.topology_graph_path):
                 with open(st.session_state.topology_graph_path, 'r', encoding='utf-8') as f:
                     html_string = f.read()
-                st.components.v1.html(html_string, height=300, scrolling=True)
+                st.components.v1.html(html_string, height=400, scrolling=True)
 
         with tab2:
             if st.session_state.attack_path_graph_path and os.path.exists(st.session_state.attack_path_graph_path):
                 with open(st.session_state.attack_path_graph_path, 'r', encoding='utf-8') as f:
                     html_string = f.read()
-                st.components.v1.html(html_string, height=300, scrolling=True)
+                st.components.v1.html(html_string, height=400, scrolling=True)
 
     # Export
     st.markdown("---")
 
     # Prepare export data
     export_data = {
-        'infrastructure': infrastructure,
+        'infrastructure': st.session_state.infrastructure,
         'cves': st.session_state.relevant_cves,
         'attack_paths': st.session_state.paths,
         'summary': {
@@ -688,7 +661,178 @@ if st.session_state.results_ready:
 
     col1, col2 = st.columns(2)
     with col1:
-        st.download_button("📥 Download Analysis", json_data, "eaglescout_analysis.json", "application/json")
+        st.download_button("📥 Download Analysis", json_data, "eaglescout_analysis.json", "application/json", key="download_json")
     with col2:
         csv_data = df.to_csv(index=False)
-        st.download_button("📥 Download CSV", csv_data, "eaglescout_analysis.csv", "text/csv")
+        st.download_button("📥 Download CSV", csv_data, "eaglescout_analysis.csv", "text/csv", key="download_csv")
+
+# ========== FLOATING AI CHAT BUTTON ==========
+# Put button at top-left in a container
+col1, col2 = st.columns([1, 10])
+with col1:
+    if st.button("🤖", key="toggle_chat"):
+        st.session_state.show_chat = not st.session_state.show_chat
+        st.rerun()
+
+# Show chat popup if enabled
+if st.session_state.show_chat:
+    # If no analysis yet, show message
+    if not st.session_state.results_ready:
+        # CSS for popup - top-left with visible border
+        st.markdown("""
+        <style>
+        .chat-popup {
+            position: fixed;
+            top: 110px;
+            left: 20px;
+            z-index: 9998;
+            width: 500px;
+            max-height: 700px;
+            overflow-y: auto;
+            border: 3px solid #00C2CB !important;
+            border-radius: 20px;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+        # Chat popup container
+        st.markdown("""
+        <div class="chat-popup">
+        """, unsafe_allow_html=True)
+
+        # Chat interface
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(245,240,232,0.95) 100%);
+                    border: 2px solid rgba(0,194,203,0.3); border-radius: 20px;
+                    box-shadow: 0 10px 40px rgba(0,194,203,0.2); backdrop-filter: blur(20px); padding: 2rem;">
+        """, unsafe_allow_html=True)
+
+        # Message when no analysis yet
+        st.markdown("""
+        <div style="text-align: center;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🤖</div>
+            <h3 style="color: #00C2CB; margin-bottom: 0.5rem;">AI Security Analyst</h3>
+            <p style="color: #5a6c7d; margin-bottom: 1.5rem;">Please upload and analyze your infrastructure first to start chatting!</p>
+            <p style="color: #7a8c9d; font-size: 0.85rem;">Upload your infrastructure JSON file and click "Analyze Vulnerabilities" to get started.</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if st.button("✕ Close", key="close_chat_no_data"):
+            st.session_state.show_chat = False
+            st.rerun()
+
+        st.markdown("</div></div>", unsafe_allow_html=True)
+
+    else:
+        # Analysis is ready - show full chat interface
+        # CSS for popup - top-left with visible border
+        st.markdown("""
+        <style>
+        .chat-popup {
+            position: fixed;
+            top: 110px;
+            left: 20px;
+            z-index: 9998;
+            width: 500px;
+            max-height: 700px;
+            overflow-y: auto;
+            border: 3px solid #00C2CB !important;
+            border-radius: 20px;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+        # Chat popup container
+        st.markdown("""
+        <div class="chat-popup">
+        """, unsafe_allow_html=True)
+
+        # Initialize chat if needed
+        if 'chat_history' not in st.session_state:
+            st.session_state.chat_history = []
+        if 'react_agent' not in st.session_state:
+            from react_agent import ReActAgent
+            st.session_state.react_agent = ReActAgent(
+                st.session_state.relevant_cves,
+                st.session_state.paths,
+                st.session_state.infrastructure
+            )
+
+        # Chat interface
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(245,240,232,0.95) 100%);
+                    border: 2px solid rgba(0,194,203,0.3); border-radius: 20px;
+                    box-shadow: 0 10px 40px rgba(0,194,203,0.2); backdrop-filter: blur(20px);">
+        """, unsafe_allow_html=True)
+
+        # Header
+        col1, col2 = st.columns([4, 1])
+        with col1:
+            st.markdown("""
+            <div style="padding: 1.5rem 2rem 1rem 2rem; border-bottom: 1px solid rgba(0,194,203,0.2);">
+                <div style="font-size: 1.8rem;">🤖</div>
+                <div style="color: #00C2CB; font-weight: 700; font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase;">
+                    AI Security Analyst
+                </div>
+                <div style="color: #5a6c7d; font-size: 0.75rem;">
+                    Ask about vulnerabilities, attack paths, and security
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        with col2:
+            if st.button("✕", key="close_chat"):
+                st.session_state.show_chat = False
+                st.rerun()
+
+        # Chat history
+        if st.session_state.chat_history:
+            st.markdown("---")
+            for msg in st.session_state.chat_history:
+                with st.chat_message(msg["role"]):
+                    st.markdown(msg["content"])
+
+        # Quick questions
+        if not st.session_state.chat_history:
+            st.markdown("**💡 Quick Questions:**")
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("📊 Summary", key="pop_summary"):
+                    st.session_state.chat_history.append({"role": "user", "content": "Get analysis summary"})
+                    response = st.session_state.react_agent.chat("Get analysis summary")
+                    st.session_state.chat_history.append({"role": "assistant", "content": response})
+                    st.rerun()
+                if st.button("🔴 High Risk", key="pop_highrisk"):
+                    st.session_state.chat_history.append({"role": "user", "content": "Show high-risk CVEs"})
+                    response = st.session_state.react_agent.chat("Show high-risk CVEs")
+                    st.session_state.chat_history.append({"role": "assistant", "content": response})
+                    st.rerun()
+            with col2:
+                if st.button("🕸️ Paths", key="pop_paths"):
+                    st.session_state.chat_history.append({"role": "user", "content": "Show critical attack paths"})
+                    response = st.session_state.react_agent.chat("Show critical attack paths")
+                    st.session_state.chat_history.append({"role": "assistant", "content": response})
+                    st.rerun()
+                if st.button("🎯 Patch", key="pop_patch"):
+                    st.session_state.chat_history.append({"role": "user", "content": "What are my top vulnerabilities?"})
+                    response = st.session_state.react_agent.chat("What are my top vulnerabilities?")
+                    st.session_state.chat_history.append({"role": "assistant", "content": response})
+                    st.rerun()
+
+        # Input
+        st.markdown("---")
+        prompt = st.text_input("💬 Ask:", key="popup_chat", label_visibility="collapsed")
+
+        if prompt and st.button("Send", key="popup_send"):
+            st.session_state.chat_history.append({"role": "user", "content": prompt})
+            with st.spinner("🤔 Thinking..."):
+                response = st.session_state.react_agent.chat(prompt)
+            st.session_state.chat_history.append({"role": "assistant", "content": response})
+            st.rerun()
+
+        if st.session_state.chat_history:
+            if st.button("🗑️ Clear", key="popup_clear"):
+                st.session_state.chat_history = []
+                st.rerun()
+
+        st.markdown("</div></div>", unsafe_allow_html=True)
+    # End of else clause (analysis ready)
