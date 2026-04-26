@@ -4,35 +4,30 @@
 
 > "We don't tell you what's vulnerable. We tell you how you get breached."
 
-EagleScout is a reasoning system that analyzes your specific infrastructure to determine attack paths and breach risk. Unlike traditional vulnerability scanners that simply list CVEs, EagleScout combines cloud CVE fetching with local LLM reasoning to provide contextualized threat intelligence.
+EagleScout is a reasoning system that analyzes your specific infrastructure to determine attack paths and breach risk. Unlike traditional vulnerability scanners that simply list CVEs, EagleScout combines cloud CVE fetching with local foundation-model reasoning to provide contextualized threat intelligence.
 
 ## 🎯 Key Features
 
 - **Privacy by Architecture**: Your infrastructure data never leaves your machine
 - **Topology-Aware Reasoning**: Understands attack paths across your infrastructure graph
 - **Hybrid Relevance Filtering**: Efficient BM25 + semantic matching to filter relevant CVEs
-- **AI-Powered Risk Analysis**: Uses Groq LLM for contextualized security reasoning
+- **AI-Powered Risk Analysis**: Uses a local foundation model for contextualized security reasoning
 - **Compliance Mapping**: Automatic tagging by sector (PCI-DSS, HIPAA, NIS2, etc.)
 - **MITRE ATT&CK Integration**: Maps vulnerabilities to tactics and techniques
 - **Interactive Visualization**: Clickable attack graphs showing breach routes
 
 ## 🏗️ Architecture
 
-```
-User JSON → Local Filter → Groq Reasoning → Graph Engine → Dashboard
-                  ↑              ↑
-                  │              │
-         NVD + OTX APIs    (Cloud LLM)
-                  ↑
-         CVE Enrichment
-```
+![EagleScout System Architecture](images/Untitled-2025-12-20-2258.png)
+
+High-level data flow: cloud CVE enrichment (NVD/OTX, plus cloud summarization) feeds local filtering and local foundation-model reasoning, then outputs to graph analytics, compliance classification, and dashboard risk views.
 
 ### Privacy Model
 
 - ✅ **User architecture JSON**: Stays 100% local
 - ✅ **Hybrid relevance filter**: Runs locally (BM25 + semantic matching)
 - ✅ **Attack graph engine**: Runs locally (NetworkX)
-- ⚠️ **Groq API**: Receives only CVE summaries and infrastructure context (no sensitive data)
+- ⚠️ **Groq API**: Used only for cloud-side CVE enrichment and summarization
 - ⚠️ **NVD API**: Public CVE database queries
 - ⚠️ **OTX API**: Receives only CVE IDs for threat intelligence
 
@@ -316,4 +311,4 @@ MIT License - Built for Hackathon 2026
 
 ---
 
-**Built with ❤️ for the Hackathon**
+**Built with ❤️ for CyberIA**
