@@ -8,10 +8,73 @@ import streamlit.components.v1 as components
 import os
 import plotly.graph_objects as go
 
-st.set_page_config(page_title="EagleScout", layout="wide", page_icon="🦅")
+st.set_page_config(page_title="EagleScout - AI-Powered Vulnerability Intelligence", layout="wide", page_icon="🦅")
 
-st.title("🦅 EagleScout")
-st.markdown("")
+# Inject global CSS for light beige theme with animations
+st.markdown("""
+<style>
+/* Hide Streamlit chrome */
+#MainMenu, footer, header {visibility: hidden;}
+.stDeployButton {display: none;}
+
+/* Page background - light beige gradient */
+.stApp {
+    background: linear-gradient(135deg, #f5f0e8 0%, #ebe4d8 50%, #e8dfd0 100%);
+    background-attachment: fixed;
+}
+
+/* All text - dark for light background */
+body, p, span, label, div {
+    color: #2c3e50;
+    animation: fadeIn 0.8s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Scale up animation */
+@keyframes scaleUp {
+    from { opacity: 0; transform: scale(0.8); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* Primary action buttons - teal gradient */
+.stButton > button[kind="primary"] {
+    background: linear-gradient(135deg, #00C2CB 0%, #00A8B5 100%);
+    color: #ffffff;
+    font-weight: 700;
+    border: none;
+    border-radius: 8px;
+    padding: 0.6rem 1.4rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 15px rgba(0, 194, 203, 0.3);
+}
+
+.stButton > button[kind="primary"]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 194, 203, 0.4);
+}
+
+/* Secondary buttons - outline style */
+.stButton > button:not([kind="primary"]) {
+    background: transparent;
+    color: #2c3e50;
+    border: 2px solid #00C2CB;
+    border-radius: 8px;
+    padding: 0.6rem 1.4rem;
+    transition: all 0.3s ease;
+    font-weight: 600;
+}
+
+.stButton > button:not([kind="primary"]):hover {
+    background: rgba(0, 194, 203, 0.1);
+    border-color: #00A8B5;
+    transform: translateY(-1px);
+}
+</style>
+""", unsafe_allow_html=True)
 
 # Initialize session state
 if 'results_ready' not in st.session_state:
@@ -20,6 +83,62 @@ if 'topology_graph_path' not in st.session_state:
     st.session_state.topology_graph_path = None
 if 'attack_path_graph_path' not in st.session_state:
     st.session_state.attack_path_graph_path = None
+
+# ========== ENTRANCE ANIMATION SECTION ==========
+if not st.session_state.results_ready:
+    # Hero section with entrance animation
+    st.markdown("""
+    <div style="text-align: center; padding: 3rem 0 2rem 0; animation: scaleUp 1s ease-out;">
+        <div style="font-size: 5rem; margin-bottom: 1rem;">🦅</div>
+        <h1 style="font-size: 4rem; font-weight: 800; background: linear-gradient(135deg, #00C2CB 0%, #00A8B5 100%);
+                    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+                    background-clip: text; margin: 0; letter-spacing: -0.02em;">
+            EagleScout
+        </h1>
+        <p style="font-size: 1.5rem; color: #5a6c7d; margin: 1rem 0 0.5rem 0; font-weight: 500;">
+            AI-Powered Vulnerability Intelligence
+        </p>
+        <p style="font-size: 1.1rem; color: #7a8c9d; max-width: 600px; margin: 0 auto; line-height: 1.6;">
+            Identify attack paths, assess breach risk, and prioritize vulnerabilities with privacy-preserving AI analysis.
+        </p>
+    </div>
+
+    <div style="display: flex; justify-content: center; gap: 2rem; margin: 3rem 0; animation: fadeIn 1.2s ease-out;">
+        <div style="text-align: center;">
+            <div style="font-size: 2.5rem;">🔍</div>
+            <div style="color: #5a6c7d; font-weight: 600; margin-top: 0.5rem;">Smart Detection</div>
+            <div style="color: #7a8c9d; font-size: 0.9rem;">CVE matching with version accuracy</div>
+        </div>
+        <div style="text-align: center;">
+            <div style="font-size: 2.5rem;">🕸️</div>
+            <div style="color: #5a6c7d; font-weight: 600; margin-top: 0.5rem;">Attack Paths</div>
+            <div style="color: #7a8c9d; font-size: 0.9rem;">Visualize breach routes</div>
+        </div>
+        <div style="text-align: center;">
+            <div style="font-size: 2.5rem;">🤖</div>
+            <div style="color: #5a6c7d; font-weight: 600; margin-top: 0.5rem;">AI Analyst</div>
+            <div style="color: #7a8c9d; font-size: 0.9rem;">Conversational security insights</div>
+        </div>
+    </div>
+
+    <div style="text-align: center; margin: 2rem 0; animation: fadeIn 1.5s ease-out;">
+        <div style="background: linear-gradient(135deg, rgba(0, 194, 203, 0.1), rgba(0, 194, 203, 0.05));
+                    border: 2px solid rgba(0, 194, 203, 0.2);
+                    border-radius: 16px; padding: 2rem 3rem; max-width: 700px; margin: 0 auto;
+                    box-shadow: 0 4px 20px rgba(0, 194, 203, 0.1);">
+            <div style="color: #00C2CB; font-weight: 700; font-size: 0.85rem; letter-spacing: 0.15em;
+                        text-transform: uppercase; margin-bottom: 1rem;">
+                Get Started
+            </div>
+            <div style="color: #2c3e50; font-size: 1.1rem; line-height: 1.7;">
+                Upload your infrastructure JSON file below to begin your vulnerability analysis.
+                <br><br>
+                <strong style="color: #00C2CB;">🔒 Your architecture data stays 100% private</strong> —
+                only CVE search terms are sent to external APIs.
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 # File upload
 uploaded_file = st.file_uploader("Upload infrastructure JSON", type=['json'])

@@ -15,7 +15,7 @@ def alert(msg: str, kind: str = "info"):
     if kind == "info":
         return st.markdown(f"""
         <div style="background: linear-gradient(135deg, rgba(0, 194, 203, 0.12), rgba(2, 128, 144, 0.08));
-                    border: 1px solid rgba(0, 194, 203, 0.3);
+                    border: 1px solid rgba(0, 194, 203, 0.25);
                     border-radius: 12px;
                     padding: 1.2rem 1.5rem;
                     margin: 0.5rem 0; color:#2c3e50;">
