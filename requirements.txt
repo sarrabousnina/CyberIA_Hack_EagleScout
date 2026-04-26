@@ -1,0 +1,22 @@
+# Core dependencies
+streamlit>=1.28.0
+pandas>=2.0.0
+numpy>=1.24.0
+python-dotenv>=1.0.0
+
+# CVE fetching and enrichment
+nvdlib>=0.7.0
+requests>=2.31.0
+groq>=0.4.0
+
+# Local ML/AI
+sentence-transformers>=2.2.0
+rank-bm25>=0.2.2
+ollama>=0.1.0
+
+# Graph engine
+networkx>=3.1
+pyvis>=0.3.0
+
+# Data processing
+pydantic>=2.0.0
