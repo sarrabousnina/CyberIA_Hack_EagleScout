@@ -552,6 +552,21 @@ if st.session_state.results_ready:
 
     # Export
     st.markdown("---")
+
+    # Prepare export data
+    export_data = {
+        'infrastructure': infrastructure,
+        'cves': st.session_state.relevant_cves,
+        'attack_paths': st.session_state.paths,
+        'summary': {
+            'total_cves': len(st.session_state.relevant_cves),
+            'total_paths': len(st.session_state.paths),
+            'high_risk_count': sum(1 for cve in st.session_state.relevant_cves if cve.get('reasoning', {}).get('risk_score', 0) >= 7),
+            'timestamp': datetime.now().isoformat()
+        }
+    }
+    json_data = json.dumps(export_data, indent=2, default=str)
+
     col1, col2 = st.columns(2)
     with col1:
         st.download_button("📥 Download Analysis", json_data, "eaglescout_analysis.json", "application/json")
